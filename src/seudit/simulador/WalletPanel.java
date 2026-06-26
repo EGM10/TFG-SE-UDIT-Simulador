@@ -1,176 +1,40 @@
-     package SE_UDIT2;
-import javax.swing.*;
-import javax.swing.border.*;
-import java.awt.*;
-import java.awt.event.*;
+package seudit.simulador;
+
+import java.awt.BorderLayout;
+import java.awt.Color;
+import java.awt.Dimension;
+import java.awt.Font;
+import java.awt.GridBagConstraints;
+import java.awt.GridBagLayout;
+import java.awt.GridLayout;
+import java.awt.Insets;
+import java.awt.event.MouseAdapter;
+import java.awt.event.MouseEvent;
 import java.text.DecimalFormat;
-import java.util.*;
-import java.util.List;
+import java.util.Date;
+import java.util.UUID;
 
-/** Simulador SE-UDIT en Java Swing. 
- * 
- * Esta aplicación de Java Swing representa dos monederos SE-UDIT virtuales,
- * pero no implementa un Secure Element físico real.
- * 
- * La simulación solo implementa el comportamiento lógico definido en la 
- * arquitectura (estados, transiciones, conservación del valor y trazabilidad),
- * permitiendo validar funcionalmente las operaciones principales del modelo:
- * creación inicial, transferencia offline, fragmentación, fusión,
- * prevención del doble gasto, recuperación ante fallo e historial.
- * 
- * */
+import javax.swing.JButton;
+import javax.swing.JLabel;
+import javax.swing.JPanel;
+import javax.swing.JTextArea;
+import javax.swing.SwingConstants;
+import javax.swing.border.CompoundBorder;
+import javax.swing.border.EmptyBorder;
+import javax.swing.border.LineBorder;
 
-public class SEUDITSimulador {
-
-    static final DecimalFormat MONEY = new DecimalFormat("0.00");
-
-    static int NEXT_UDIT = 1;
-
-    static String nextUditId() {
-        return String.format("UDIT-%04d", NEXT_UDIT++);
-    }
-
-    enum Mode {
-        NORMAL,
-        INITIAL_LOAD_INPUT,
-        TRANSFER_INPUT,
-        FRAGMENT_INPUT,
-        SELECT_UDIT_TRANSFER,
-        HISTORY
-    }
-
-    enum AccessState {
-        WAITING_PIN,
-        OPERATIVE_NORMAL,
-        OPERATIVE_DURESS,
-        BLOCKED_BY_PIN
-    }
-
-    static class HistoryEntry {
-        final String text;
-
-        HistoryEntry(String text) {
-            this.text = text;
-        }
-    }
-    
-    // Una unidad UDIT dentro de la simulación.
-    // Cada UDIT tiene identificador, valor, estado funcional y origen. 
-    static class Udit {
-        final String id;
-        final double value;
-        String state;
-        final String origin;
-        final String walletId;
-
-        Udit(String id, double value, String state, String origin, String walletId) {
-            this.id = id;
-            this.value = value;
-            this.state = state;
-            this.origin = origin;
-            this.walletId = walletId;
-        }
-
-        String shortText() {
-            return id + " " + state + ": " + MONEY.format(value).replace(".", ",") + " UDIT";
-        }
-    }
-    
-    // Modelo interno del monedero. Almacena el saldo, las UDIT activas,
-    // el historial, estados de bloqueo, transferencias pendientes y recuperación.
-    static class WalletModel {
-        final String name;
-        final String id;
-
-        double balance = 0.0;
-
-        boolean initialized = false;
-        boolean blocked = false;
-        boolean amountConfirmed = false;
-        boolean recoveryPending = false;
-
-        String activeUditId = null;
-        String selectedAmountText = "";
-        String pendingFrom = null;
-
-        int cursor = -1;
-        int failedPinAttempts = 0;
-        long blockedUntil = 0;
-        int northResetCount = 0;
-        boolean accessGranted = false;
-        int historyIndex = 0;
-        int selectedUditIndex = 0;
-
-        Double pendingOutgoing = null;
-        boolean pendingOutgoingFromFragment = false;
-        String pendingOutgoingUditId = null;
-        Double pendingOutgoingValue = null;
-
-        final List<Udit> udits = new ArrayList<>();
-        final List<HistoryEntry> history = new ArrayList<>();
-
-        int nextUditNumber = 1;
-        WalletModel(String name) {
-            this.name = name;
-            this.id = "ID_" + UUID.randomUUID().toString().substring(0, 6).toUpperCase();
-            history.add(new HistoryEntry("Saldo inicial: Vacío"));
-        }
-
-        String nextUditId() {
-            return String.format("UDIT-%04d", nextUditNumber++);
-        }
-        
-        String balanceText() {
-            return !initialized ? "Vacío" : MONEY.format(balance).replace(".", ",") + " UDIT";
-        }
-    }
-
-    // Ventana principal de la aplicación. Contiene los dos monederos simulados
-    // y el registro inferior de eventos donde se muestran las fases de los protocolos:
-    // WalletPanel a y WalletPanel b 
-    static class SimulatorFrame extends JFrame {
-        JTextArea log = new JTextArea(6, 40);
-
-        SimulatorFrame() {
-            setTitle("SEUDITSimulador - Transferencia offline");
-            setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
-            setMinimumSize(new Dimension(1320, 720));
-
-            log.setEditable(false);
-            log.setFont(new Font(Font.MONOSPACED, Font.PLAIN, 12));
-
-            WalletPanel a = new WalletPanel(new WalletModel("Dispositivo A"), log);
-            WalletPanel b = new WalletPanel(new WalletModel("Dispositivo B"), log);
-
-            a.peer = b;
-            b.peer = a;
-
-            JSplitPane split = new JSplitPane(JSplitPane.HORIZONTAL_SPLIT, a, b);
-            split.setResizeWeight(.5);
-
-            JLabel lt = new JLabel("Registro del protocolo de transferencia offline", SwingConstants.CENTER);
-            lt.setFont(new Font(Font.SANS_SERIF, Font.BOLD, 14));
-
-            JPanel south = new JPanel(new BorderLayout());
-            south.add(lt, BorderLayout.NORTH);
-            south.add(new JScrollPane(log), BorderLayout.CENTER);
-
-            add(split, BorderLayout.CENTER);
-            add(south, BorderLayout.SOUTH);
-            setLocationRelativeTo(null);
-
-            log("Simulador iniciado. Introduzca el PIN para acceder al monedero.");
-        }
-
-        void log(String s) {
-            log.append("[" + new java.text.SimpleDateFormat("HH:mm:ss").format(new Date()) + "] " + s + "\n");
-        }
-    }
-
-    
-    // Representa visualmente un monedero SE-UDIT simulado.
+// Representa visualmente un monedero SE-UDIT simulado.
     // Contiene la pantalla, botones de operación y lógica de interacción del usuario.  
-    static class WalletPanel extends JPanel {
+    class WalletPanel extends JPanel {
+    	
+    	private static final DecimalFormat MONEY = new DecimalFormat("0.00");
+
+    	private static int NEXT_UDIT = 1;
+
+    	private static String nextUditId() {
+    	    return String.format("UDIT-%04d", NEXT_UDIT++);
+    	}
+    	
     	// Modelo interno del monedero (saldo, UDIT, historial y estados).
         final WalletModel model;
         
@@ -994,226 +858,3 @@ center = navButton("✓");
             unblock.setEnabled(true);
         }
     }
-
-    static class ChipPanel extends JPanel {
-        ChipPanel() { setPreferredSize(new Dimension(140, 240)); setOpaque(false); }
-        protected void paintComponent(Graphics g) {
-            super.paintComponent(g);
-            Graphics2D g2 = (Graphics2D) g.create();
-            g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
-            int x = 18, y = 58, w = 102, h = 82;
-            g2.setColor(new Color(238, 196, 70));
-            g2.fillRect(x, y, w, h);
-            g2.setColor(new Color(90, 70, 20));
-            g2.drawRect(x, y, w, h);
-            for (int i = 1; i < 3; i++) {
-                g2.drawLine(x + i * w / 3, y + 10, x + i * w / 3, y + h - 10);
-                g2.drawLine(x + 10, y + i * h / 3, x + w - 10, y + i * h / 3);
-            }
-            g2.setColor(Color.WHITE);
-            g2.setFont(new Font(Font.SANS_SERIF, Font.BOLD, 34));
-            g2.drawString(")))", x + 38, y + 135);
-            g2.dispose();
-        }
-    }
-
-    static class DisplayPanel extends JPanel {
-        final WalletModel model;
-        Mode mode = Mode.NORMAL;
-        String flash = null;
-        long flashUntil = 0;
-
-        DisplayPanel(WalletModel m) {
-            model = m;
-            setPreferredSize(new Dimension(230, 290));
-            setBackground(new Color(20, 20, 20));
-            setBorder(new CompoundBorder(new LineBorder(Color.BLACK, 5), new EmptyBorder(10, 10, 10, 10)));
-        }
-
-        void flashMessage(String msg) {
-            flash = msg;
-            flashUntil = System.currentTimeMillis() + 1100;
-            repaint();
-            javax.swing.Timer t = new javax.swing.Timer(1150, e -> repaint());
-            t.setRepeats(false);
-            t.start();
-        }
-
-        protected void paintComponent(Graphics g) {
-            super.paintComponent(g);
-            Graphics2D g2 = (Graphics2D) g.create();
-            g2.setRenderingHint(RenderingHints.KEY_TEXT_ANTIALIASING, RenderingHints.VALUE_TEXT_ANTIALIAS_ON);
-
-            g2.setColor(new Color(18, 18, 18));
-            g2.fillRect(0, 0, getWidth(), getHeight());
-            if (flash != null && System.currentTimeMillis() < flashUntil) {
-                g2.setColor(new Color(120, 210, 255));
-                g2.setFont(new Font(Font.SANS_SERIF, Font.BOLD, 32));
-                int yy = 180;
-                for (String l : flash.split("\\n")) {
-                    center(g2, l, yy);
-                    yy += 42;
-                }
-                g2.dispose();
-                return;
-            }
-            
-            if (mode == Mode.INITIAL_LOAD_INPUT || mode == Mode.TRANSFER_INPUT || mode == Mode.FRAGMENT_INPUT) {
-                String title =
-                    mode == Mode.INITIAL_LOAD_INPUT ? "Carga inicial" :
-                    mode == Mode.TRANSFER_INPUT ? "Importe a transferir" :
-                    "Fragmentar";
-
-                input(g2, title);
-                g2.dispose();
-                return;
-            }
-            
-            if (mode == Mode.SELECT_UDIT_TRANSFER) {
-                selectUditForTransfer(g2);
-                g2.dispose();
-                return;
-            }
-            
-            if (mode == Mode.HISTORY) {
-                hist(g2);
-                g2.dispose();
-                return;
-            }
-            
-            if (model.accessGranted) {
-                g2.setColor(Color.WHITE);
-                g2.setFont(new Font(Font.SANS_SERIF, Font.PLAIN, 18));
-                center(g2, "UDIT activas", 70);
-
-                g2.setColor(new Color(120, 210, 255));
-                g2.setFont(new Font(Font.SANS_SERIF, Font.BOLD, 20));
-
-                int yy = 130;
-
-                if (model.udits.isEmpty()) {
-                    center(g2, "Vacío", yy);
-                } else {
-                    for (Udit u : model.udits) {
-                        center(g2,
-                               u.id + ": " +
-                               MONEY.format(u.value).replace(".", ","),
-                               yy);
-                        yy += 35;
-                    }
-                }
-
-                g2.setColor(new Color(140, 255, 220));
-                g2.setFont(new Font(Font.SANS_SERIF, Font.BOLD, 18));
-                center(g2, "OPERATIVO", 260);
-
-                g2.dispose();
-                return;
-            }
-
-            g2.setColor(new Color(140, 255, 120));
-            g2.setFont(new Font(Font.SANS_SERIF, Font.BOLD, 30));
-            center(g2, "Introduzca PIN", 150);
-
-            g2.setFont(new Font(Font.MONOSPACED, Font.BOLD, 36));
-            String pinView = model.selectedAmountText.isEmpty() ? "_ _ _ _" : model.selectedAmountText;
-            center(g2, pinView, 230);
-
-            g2.setFont(new Font(Font.SANS_SERIF, Font.PLAIN, 16));
-            center(g2, "Use las flechas para escribir", 330);
-            center(g2, "✓ para confirmar", 355);
-
-            g2.dispose();
-        }
-
-        void input(Graphics2D g2, String title) {
-            g2.setColor(new Color(140, 255, 220));
-            g2.setFont(new Font(Font.SANS_SERIF, Font.BOLD, 15));
-            center(g2, title, 70);
-            String s = model.selectedAmountText.isEmpty() ? "_" : model.selectedAmountText;
-            g2.setFont(new Font(Font.MONOSPACED, Font.BOLD, 34));
-            int x = (getWidth() - g2.getFontMetrics().stringWidth(s)) / 2;
-            for (int i = 0; i < s.length(); i++) {
-                char c = s.charAt(i);
-                boolean blink = i == model.cursor && ((System.currentTimeMillis() / 350) % 2 == 0);
-                g2.setColor(blink ? new Color(255, 214, 72) : new Color(120, 210, 255));
-                g2.drawString(String.valueOf(c), x, 128);
-                x += g2.getFontMetrics().charWidth(c);
-            }
-            g2.setColor(Color.WHITE);
-            g2.setFont(new Font(Font.SANS_SERIF, Font.PLAIN, 11));
-            center(g2, "Este: añadir 0", 178);
-            center(g2, "Este largo: coma decimal", 196);
-            center(g2, "Norte/Sur: modificar dígito", 214);
-            center(g2, "Centro: confirmar", 232);
-        }
-        
-        
-        
-        
-        void selectUditForTransfer(Graphics2D g2) {
-            g2.setColor(new Color(120, 210, 255));
-            g2.setFont(new Font(Font.SANS_SERIF, Font.BOLD, 22));
-            center(g2, "Seleccionar UDIT", 65);
-
-            g2.setFont(new Font(Font.SANS_SERIF, Font.BOLD, 17));
-
-            int yy = 120;
-
-            for (int i = 0; i < model.udits.size(); i++) {
-                Udit u = model.udits.get(i);
-
-                if (i == model.selectedUditIndex) {
-                    g2.setColor(new Color(255, 214, 72));
-                } else {
-                    g2.setColor(Color.WHITE);
-                }
-
-                center(g2,
-                       u.id + ": " + MONEY.format(u.value).replace(".", ",") + " UDIT",
-                       yy);
-
-                yy += 38;
-            }
-
-            g2.setColor(new Color(140, 255, 220));
-            g2.setFont(new Font(Font.SANS_SERIF, Font.PLAIN, 12));
-            center(g2, "Norte/Sur: elegir · Centro: confirmar", 345);
-        }
-
-        void hist(Graphics2D g2) {
-            g2.setColor(new Color(120, 210, 255));
-            g2.setFont(new Font(Font.SANS_SERIF, Font.BOLD, 22));
-            center(g2, "Historial", 68);
-            g2.setColor(Color.WHITE);
-            g2.setFont(new Font(Font.SANS_SERIF, Font.BOLD, 14));
-            wrap(g2, model.history.get(model.historyIndex).text, 115, 190);
-            g2.setColor(new Color(140, 255, 220));
-            g2.setFont(new Font(Font.SANS_SERIF, Font.PLAIN, 12));
-            center(g2, (model.historyIndex + 1) + " / " + model.history.size(), 245);
-            center(g2, "Norte/Sur: navegar · Centro: salir", 265);
-        }
-
-        void center(Graphics2D g2, String s, int y) {
-            g2.drawString(s, (getWidth() - g2.getFontMetrics().stringWidth(s)) / 2, y);
-        }
-
-        void wrap(Graphics2D g2, String text, int y, int max) {
-            java.util.List<String> lines = new ArrayList<>();
-            String line = "";
-            for (String w : text.split(" ")) {
-                String t = line.isEmpty() ? w : line + " " + w;
-                if (g2.getFontMetrics().stringWidth(t) > max) { lines.add(line); line = w; }
-                else line = t;
-            }
-            if (!line.isEmpty()) lines.add(line);
-            int yy = y;
-            for (String l : lines) { center(g2, l, yy); yy += 22; }
-        }
-    }
-
-    public static void main(String[] args) {
-        SwingUtilities.invokeLater(() -> new SimulatorFrame().setVisible(true));
-    }
-}
-
