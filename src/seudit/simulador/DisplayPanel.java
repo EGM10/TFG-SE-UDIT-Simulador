@@ -23,6 +23,8 @@ import java.util.List;
  * selección de UDIT, historial y mensajes temporales de estado.
  */
 class DisplayPanel extends JPanel {
+	private static final long serialVersionUID = 1L; //evita un warning por no usar un identificador
+	// y heredar de la clase serializable JPanel
 
     private static final DecimalFormat MONEY = new DecimalFormat("0.00");
 

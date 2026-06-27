@@ -26,6 +26,8 @@ import javax.swing.border.LineBorder;
 // Representa visualmente un monedero SE-UDIT simulado.
     // Contiene la pantalla, botones de operación y lógica de interacción del usuario.  
     class WalletPanel extends JPanel {
+    	private static final long serialVersionUID = 1L; //evita un warning por no usar un identificador
+    	// y heredar de la clase serializable JPanel
     	
     	private static final DecimalFormat MONEY = new DecimalFormat("0.00");
 

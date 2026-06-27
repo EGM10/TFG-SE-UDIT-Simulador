@@ -13,6 +13,8 @@ import java.awt.RenderingHints;
  * asociado al monedero SE-UDIT simulado.
  */
 class ChipPanel extends JPanel {
+	private static final long serialVersionUID = 1L; //evita un warning por no usar un identificador
+	// y heredar de la clase serializable JPanel
 
     ChipPanel() {
         setPreferredSize(new Dimension(140, 240));

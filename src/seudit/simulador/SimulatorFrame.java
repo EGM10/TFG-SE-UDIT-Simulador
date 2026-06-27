@@ -17,6 +17,9 @@ import javax.swing.SwingConstants;
 // y el registro inferior de eventos donde se muestran las fases de los protocolos:
 // WalletPanel a y WalletPanel b 
 class SimulatorFrame extends JFrame {
+	private static final long serialVersionUID = 1L; //evita un warning por no usar un identificador
+	// y heredar de la clase serializable JFrame
+	
     JTextArea log = new JTextArea(6, 40);
 
     SimulatorFrame() {
